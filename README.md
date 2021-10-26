@@ -15,15 +15,15 @@ Keywords: Maximal Independent Set (MIS), Game Theory, Distributed System
 
 ## Outline
 
-- Install
-- How to Run UI
-- How to Use UI 
-    - Create a graph
-    - Check if the graph is an independent set
-    - Run a move
-    - Simulate
-    - Programming Languages & Framework
-    - Plot
+- [Install](#Install)
+- [How to Run UI](#How to Run UI)
+- [How to Use UI](#How to Use UI) 
+    - [Create a graph](#Create a graph)
+    - [Check if the graph is an independent set](#Check if the graph is an independent set)
+    - [Run a move](#Run a move)
+    - [Simulate](#Simulate)
+    - [Programming Languages & Framework](#Programming Languages & Framework)
+    - [Plot](#Plot)
 - Programming Languages & Framework
 - Notes
 - Todos
