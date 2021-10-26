@@ -8,6 +8,11 @@
     {#  Run a move #}
     <div class="container mt-3">
         <h5>Run a move with a utility function:</h5>
+        <div class="text-secondary">
+            All of the following 3 options use the utility function given below.
+            The difference between weighted & non-weighted utility function is whether to set vertices' "priority".
+            If weighted MIS is selected, priority is counted by the priority function listed below.
+        </div>
         <div class="text-danger" id="create_graph_first_hint">Hint: Create a graph first before running a
             move.
         </div>
@@ -20,13 +25,13 @@
         <div class="form-check">
             <input id="utility1" class="form-check-input" type="radio" name="flexRadioDefault">
             <label class="form-check-label" for="utility1">
-                Weighted maximum independent set (utility function 1)
+                Weighted maximum independent set (priority function 1)
             </label>
         </div>
         <div class="form-check">
             <input id="utility2" class="form-check-input" type="radio" name="flexRadioDefault">
             <label class="form-check-label" for="utility2">
-                Weighted maximum independent set (utility function 2)
+                Weighted maximum independent set (priority function 2)
             </label>
         </div>
         <div class="container row">
@@ -64,7 +69,7 @@
             Construct graph using ws model. Randomize the strategies and weights.
             Each vertex: 50% to use strategy 1 or 0; weight randomly selected from 1~5, each is 20%;
             all vertices' weight expected sum is 3. Rewiring probability will be tested from 0.99~1.07 per 0.02. Alpha
-            used is 2.0.
+            used is 2.0. K must be even.
         </p>
         <form id="run_game_form" class="">
             <div class="row">
@@ -125,6 +130,7 @@
         {# Create a ws model #}
         <div class="mt-3">
             <h5>Create a ws model graph:</h5>
+            <div>K must be even.</div>
             <form id="ws_graph_form" class="">
                 <div class="row">
                     <div class="col-md-4 col-sm-6">
@@ -170,6 +176,14 @@
                 <button type="submit" class="btn btn-primary mb-3">Create</button>
             </form>
         </div>
+        {#  Check if a set is an independent set. #}
+        <div class="mt-3">
+            <h5>Check if the graph is an independent set.</h5>
+            <div> (Set of all vertices with strategy 1)</div>
+            <div class="text-danger">Hint: Create a graph first before checking.</div>
+            <button id="check_IS_btn" class="btn btn-primary">Check</button>
+            <div id="checked_result" class=""></div>
+        </div>
 
         {# Toasts #}
         {# Successfully #}
@@ -204,7 +218,7 @@
         </div>
 
         {# P.S. #}
-        <h5>Notes</h5>
+        <h5 class="mt-3">Notes</h5>
         <ul>
             <li>Octagon means it has a better choice in the last turn.</li>
             <li>K must be even.</li>
@@ -213,6 +227,8 @@
             <li>"w1.0" means this vertex's weight is 1.0.</li>
             <li>Showing image may take some time.</li>
             <li>Not to set weight to be zero, or it may encounter divided by zero.</li>
+            <li>If you turn on random-weight-initialization, each weight will be randomly picked from 0~n-1, where n is the total number of vertices.</li>
+            <li>You can check the README.md for more information.</li>
         </ul>
     </div>
 
@@ -232,7 +248,6 @@
             }
             let toast = new bootstrap.Toast(toastLiveExample)
             toast.show()
-
         }
 
         function submit_ajax(data, url) {
@@ -320,6 +335,25 @@
                 'n_games': $('#run_game_n_games_input').val(),
             }
             submit_ajax(data, url)
+            e.preventDefault()
+        });
+
+        {#  Click "check IS"  #}
+        $(document).on('click', '#check_IS_btn', function (e) {
+            let codes = $('#contentCodes').text()
+            let url = '/check_independent_set'
+            let data = {}
+            $.ajax({
+                type: "POST",
+                contentType: 'application/json;charset=UTF-8',
+                url: url,
+                data: JSON.stringify({data: data, codes: codes}), // serializes the form's elements.
+                success: function (response) {
+                    console.log(response)
+                    show_toast(response['state'])
+                    $("#checked_result").text(response['result'])
+                }
+            })
             e.preventDefault()
         });
 

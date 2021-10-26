@@ -108,7 +108,8 @@ class Graph:
 
     def serialize(self) -> str:
         return std_json.dumps(
-            {'edges': self.edges.tolist(), 'strategies': list(self.strategies), 'weights': list(self.weights)})
+            {'edges': self.edges.tolist(), 'strategies': list(self.strategies),
+             'weights': list(map(float, self.weights))})
 
     @staticmethod
     def create_graph_with_edges(edges: np.ndarray):
@@ -145,7 +146,10 @@ class VertexWeight:
         # return (np.floor(np.random.random((n_vertices,)) * 5) % 5 + 1)
         # return np.random.normal(10, 3, (n_vertices,))
         # return np.random.randint(1, n_vertices + 1, size=(n_vertices,))
-        return np.random.randint(0, n_vertices, size=(n_vertices,))
+        # return np.random.randint(0, n_vertices, size=(n_vertices,))
+        pool = np.arange(n_vertices)
+        np.random.shuffle(pool)
+        return pool.tolist()
 
 
 class Edge:
@@ -315,6 +319,27 @@ class Game:
                 break
             move_cnt += 1
         return graph, move_cnt
+
+    @staticmethod
+    def check_real_independent_set(graph: Graph):
+        # Method: test each vertex
+        #         Turn a vertex with strategy 0 to 1, and see if it doesn't connect any vertices with strategy 1.
+        #         If so, the new graph is an independent set so the original graph is not a "maximal" independent set.
+        n_vertices = len(graph.edges)
+        for v in range(n_vertices):
+            if graph.strategies[v] != 0.:
+                continue
+            no_neighbor_with_s1 = True
+            # See if a strategy-0 vertex's all neighbors are with strategy-0.
+            for other_v in range(n_vertices):
+                if other_v == v:
+                    continue
+                if graph.edges[v][other_v] == 1. and graph.strategies[other_v] == 1.:
+                    no_neighbor_with_s1 = False
+                    break
+            if no_neighbor_with_s1 is True:
+                return False  # TODO: check again
+        return True
 
 # times = 100
 # avg_moves = []

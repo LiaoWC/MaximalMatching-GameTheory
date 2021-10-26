@@ -124,6 +124,17 @@ def run_a_move():
             'weight_sum': graph.strategy_1_weight_sum()}
 
 
+@app.route('/check_independent_set', methods=['POST'])
+def check_independent_set():
+    data, codes = get_data_and_codes()
+    graph = Graph(strategies=None, edges=None, weights=None)
+    graph.deserialize(codes=codes)
+    # Check
+    result = Game.check_real_independent_set(graph=graph)
+    #
+    return {'state': 'successful', 'result': result}
+
+
 @app.route('/run_games', methods=['POST'])
 def run_games():
     data, codes = get_data_and_codes()
