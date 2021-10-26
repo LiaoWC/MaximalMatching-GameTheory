@@ -10,6 +10,8 @@ MarkupSafe==2.0.1
 matplotlib==3.4.3
 numpy==1.21.3
 Pillow==8.4.0
+pydot==1.4.2
+pydotplus==2.0.2
 pyparsing==2.4.7
 python-dateutil==2.8.2
 six==1.16.0
