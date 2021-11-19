@@ -52,9 +52,7 @@ class Graph:
     def plot_graph(self, filename='plotted_graph',
                    show=False,
                    picked_vertex: Optional[int] = None,
-                   have_better_choice: Optional[List[int]] = None,
-                   maximal_matching: bool = False,
-                   fill_when_s_not_zero: bool = True):
+                   have_better_choice: Optional[List[int]] = None):
         """
         :param filename:
         :param show: whether plt show the graph
@@ -198,6 +196,17 @@ class Graph:
     def open_neighbors(self, v: float) -> List[int]:
         return self.edges[v].nonzero()[0].tolist()
 
+    def n_matching(self) -> int:
+        n = 0
+        for v in range(self.n_vertices()):
+            i = v
+            j = int(self.strategies[i])
+            k = int(self.strategies[j])
+            if j != k and k == i:
+                n += 1
+        assert n % 2 == 0
+        return n // 2
+
 
 class Strategy:
     @staticmethod
@@ -325,8 +334,8 @@ class Utility:
     """
 
     @staticmethod
-    def maximal_matching(graph: Graph, vertex: int, strategy: float, opt: dict) -> float:
-        """Unweighted MIS game.
+    def maximal_matching_1(graph: Graph, vertex: int, strategy: float, opt: dict) -> float:
+        """
         If strategy == vertex, it means this v chooses not to connect anyone.
         :param graph:
         :param vertex: the vertex to calculate utility
@@ -337,10 +346,10 @@ class Utility:
         Let i = vertex to discuss
         Let j = i's strategy = c(i)
         Let k = j's strategy = c(j)
-        if i == j: return 0
-        elif k == i: return +999999 (i forms a matching)
-        elif k == j: return -999999 (i connects a v which already has a matching)
-        else: return 999 (encourage v to find a matching instead of be silent)
+        if i == j: return ZERO
+        elif k == i: return MAX (i forms a matching)
+        elif k == j: return MIN (i connects a v which already has a matching)
+        else: return GOOD (encourage v to find a matching instead of be silent)
         """
         strategy = int(strategy)
         i = int(vertex)
@@ -357,6 +366,54 @@ class Utility:
             return Utility.MIN
         else:
             return Utility.GOOD
+
+    @staticmethod
+    def maximal_matching_2(graph: Graph, vertex: int, strategy: float, opt: dict) -> float:
+        """Give vertices which have less neighbors higher priority.
+        If strategy == vertex, it means this v chooses not to connect anyone.
+        :param graph:
+        :param vertex: the vertex to calculate utility
+        :param strategy:
+        :param opt:
+
+        Let c() indicate a vertex's strategy
+        Let i = vertex to discuss
+        Let j = i's strategy = c(i)
+        Let k = j's strategy = c(j)
+        if i == j: return ZERO
+        elif k == i: return MAX (i forms a matching)
+        elif k == j: return MIN (i connects a v which already has a matching)
+        else: return GOOD (encourage v to find a matching instead of be silent)
+        """
+
+        def priority(v):
+            return -sum(graph.edges[v])
+
+        def detect_higher(other_than: List[int]):
+            # Detect if is forced by a higher priority vertex
+            for other_ in range(graph.n_vertices()):
+                if other_ == i or other_ == j:
+                    continue
+                if int(graph.strategies[other_]) == i and (priority(other_) > priority(i)):
+                    return True  # Force it to break to the link
+            return False
+
+        strategy = int(strategy)
+        i = int(vertex)
+        j = int(strategy)
+        k = int(graph.strategies[j])
+        c_k = int(graph.strategies[k])
+        if i == j:
+            return 0
+        if graph.edges[vertex][strategy] == 0.:  # Not itself or open neighbor
+            return Utility.MIN
+        elif c_k == j and i != k and j != k and (priority(i) <= priority(j) or priority(i) <= priority(k)):
+            # Only when its priority higher than both v in the pair can it break the pair.
+            return -1
+        else:
+            u = 1.
+            u += (graph.n_vertices() + priority(j)) if int(graph.strategies[j]) == i else 0.
+            return u
 
 
 class PossibleStrategies:
@@ -392,11 +449,10 @@ class Game:
             original_u = utility_func(graph=graph, vertex=vertex, strategy=original_s, opt=opt)
             max_u_s = original_s
             max_u = original_u
-            for s in strategy_list:
+            for s in np.random.permutation(np.array(strategy_list)).tolist():
                 new_u = utility_func(graph=graph, vertex=vertex, strategy=s, opt=opt)
                 if new_u > max_u:
                     max_u_s, max_u = s, new_u
-            print('kkk', original_s, original_u, max_u_s, max_u)
             if max_u_s != original_s:
                 better_choices[vertex] = (max_u_s, max_u)
         return better_choices
@@ -423,14 +479,13 @@ class Game:
         graph.strategies[selected_vertex] = new_s
         return False, have_better_choice, graph, selected_vertex, better_choices
 
-    def run(self, show_each_move=False, alpha=None) -> Tuple[Graph, int]:
-        # TODO: need to revise
+    def run(self, strategy_list, opt, show_each_move=False) -> Tuple[Graph, int]:
         graph = deepcopy(self.graph)
         move_cnt = 0
         while True:
             if show_each_move:
                 graph.plot_graph(show=True)
-            if self.run_a_time(graph=graph, utility_func=self.utility_func, alpha=alpha)[0]:
+            if self.run_a_time(graph=graph, utility_func=self.utility_func, strategy_list=strategy_list, opt=opt)[0]:
                 break
             move_cnt += 1
         return graph, move_cnt
@@ -457,44 +512,90 @@ class Game:
                 return False  # TODO: check again
         return True
 
+    @staticmethod
+    def check_real_maximal_matching(graph: Graph):
+        # Check if there are available pairs not matched
+        for v in range(graph.n_vertices()):
+            target = graph.strategies[v]
+            target_target = graph.strategies[int(target)]
+            if target_target == v and target_target != target:
+                continue
+            for other in range(graph.n_vertices()):
+                other_target = graph.strategies[other]
+                other_target_target = graph.strategies[int(other_target)]
+                if graph.edges[v][other] == 0.:  # Not neighbor
+                    continue
+                if other_target_target == other and other_target_target != other_target:
+                    continue
+                return False
+        return True
 
-# times = 100
-# avg_moves = []
-# avg_cardinality = []
-# all_p = np.arange(10.) / 10.
-# for rewire_p in all_p:
-#     total_moves = 0
-#     total_cardinality = 0
-#     for _ in range(times):
-#         init_edges = Edge.ws_model(n_vertices=30, k_nearest=4, rewire_prob=rewire_p)
-#         init_strategies = Strategy.partial_ones(n_vertices=len(init_edges), prob_one=0.5)
-#         init_weights = VertexWeight.random(n_vertices=len(init_edges))
-#         g = Graph(strategies=init_strategies, edges=init_edges, weights=init_weights)
-#         m = Game(graph=g, utility_func=Utility.maximal_independent_set)
-#         result_graph, moves = m.run(show_each_move=False)
-#         total_moves += moves
-#         total_cardinality += sum(result_graph.strategies)
-#         g.plot_graph(show=True)
-#         exit(1)
-#     avg_moves.append(total_moves / times)
-#     avg_cardinality.append(total_cardinality / times)
-# plt.plot(all_p, avg_moves, label='avg_moves')
-# plt.plot(all_p, avg_cardinality, label='avg_cardinality')
-# plt.legend()
-# plt.show()
 
+def simulate(u_funcs: List[Callable], times=100, n_vertices=30, k_nearest=4):
+    fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(12, 6))
+    for u_idx, u_func in enumerate(u_funcs):
+        print(f'Utility function {u_idx + 1}/{len(u_funcs)}: {u_func.__name__}')
+        avg_moves = []
+        avg_n_matchings = []
+        all_p = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        for rewire_prob in all_p:
+            total_moves = 0
+            total_n_matchings = 0
+            for times_idx in range(times):
+                print(f'--- rewire_prob={rewire_prob}\ttimes {times_idx + 1}/{times}', end='\r')
+                ##############
+                init_edges = Edge.ws_model(n_vertices=n_vertices, k_nearest=k_nearest, rewire_prob=rewire_prob)
+                init_strategies = Strategy.arange(n_vertices=len(init_edges))
+                init_weights = VertexWeight.same(n_vertices=len(init_edges))
+                g = Graph(strategies=init_strategies, edges=init_edges, weights=init_weights)
+                m = Game(graph=g, utility_func=u_func)
+                g, mv_cnt = m.run(strategy_list=PossibleStrategies.all_vertices(g), opt={}, show_each_move=False)
+                if not (Game.check_real_maximal_matching(g)):
+                    plt.close()
+                    # plt.figure(figsize=(15,15))
+                    g.plot_graph_maximal_matching(show=True)
+                    raise ValueError('The game terminates but it is not maximal matching.')
+                n_matching = g.n_matching()
+                total_n_matchings += n_matching
+                total_moves += mv_cnt
+                #################
+            print('')
+            avg_moves.append(total_moves / times)
+            avg_n_matchings.append(total_n_matchings / times)
+        ax0.plot(all_p, avg_n_matchings, label=f'{u_func.__name__}')
+        ax1.plot(all_p, avg_moves, label=f'{u_func.__name__}')
+    info = f'(n={n_vertices},k={k_nearest},times={times})'
+    ax0.set_title('Avg# matched pairs' + info)
+    ax1.set_title('Avg# moves' + info)
+    ax0.set_xlabel('Rewire Prob.')
+    ax1.set_xlabel('Rewire Prob.')
+    ax0.legend()
+    ax1.legend()
+    plt.show()
+
+
+simulate(u_funcs=[Utility.maximal_matching_1,
+                  Utility.maximal_matching_2],
+         n_vertices=30, k_nearest=4)
+
+#####################################
+# TODO: run a time and run a game tutorial using ipynb
 init_edges = Edge.ws_model(n_vertices=10, k_nearest=2, rewire_prob=0.4)
 init_strategies = Strategy.arange(n_vertices=len(init_edges))
 init_weights = VertexWeight.same(n_vertices=len(init_edges))
 g = Graph(strategies=init_strategies, edges=init_edges, weights=init_weights)
-m = Game(graph=g, utility_func=Utility.maximal_matching)
+m = Game(graph=g, utility_func=Utility.maximal_matching_2)
+
+# g, mv_cnt = m.run(strategy_list=PossibleStrategies.all_vertices(g), opt={}, show_each_move=False)
 
 is_terminated, have_better_choices, g, selected_vx, better_choicess = Game.run_a_time(graph=g,
-                                                                                      utility_func=Utility.maximal_matching,
+                                                                                      utility_func=Utility.maximal_matching_2,
                                                                                       strategy_list=PossibleStrategies.all_vertices(
                                                                                           g),
                                                                                       opt={})
-print(is_terminated, have_better_choices, selected_vx, better_choicess)
 g.plot_graph_maximal_matching(show=True, picked_vertex=selected_vx, have_better_choice=have_better_choices)
 
-# TODO: verify that the game state is a valid solution
+# g.plot_graph_maximal_matching(show=True)
+
+print(g.n_matching())
+print(Game.check_real_maximal_matching(g))
