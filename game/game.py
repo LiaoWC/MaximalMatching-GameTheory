@@ -96,7 +96,6 @@ class Graph:
         :param picked_vertex: highlight  the vertex picked
                               (may indicate its the one change its strategy to improve its payoff)
                               (shown as a tripleoctagon)
-        :param fill_when_s_not_zero:
         """
         d = graphviz.Digraph(filename=filename)
         d.format = 'png'
@@ -574,28 +573,3 @@ def simulate(u_funcs: List[Callable], times=100, n_vertices=30, k_nearest=4):
     plt.show()
 
 
-simulate(u_funcs=[Utility.maximal_matching_1,
-                  Utility.maximal_matching_2],
-         n_vertices=30, k_nearest=4)
-
-#####################################
-# TODO: run a time and run a game tutorial using ipynb
-init_edges = Edge.ws_model(n_vertices=10, k_nearest=2, rewire_prob=0.4)
-init_strategies = Strategy.arange(n_vertices=len(init_edges))
-init_weights = VertexWeight.same(n_vertices=len(init_edges))
-g = Graph(strategies=init_strategies, edges=init_edges, weights=init_weights)
-m = Game(graph=g, utility_func=Utility.maximal_matching_2)
-
-# g, mv_cnt = m.run(strategy_list=PossibleStrategies.all_vertices(g), opt={}, show_each_move=False)
-
-is_terminated, have_better_choices, g, selected_vx, better_choicess = Game.run_a_time(graph=g,
-                                                                                      utility_func=Utility.maximal_matching_2,
-                                                                                      strategy_list=PossibleStrategies.all_vertices(
-                                                                                          g),
-                                                                                      opt={})
-g.plot_graph_maximal_matching(show=True, picked_vertex=selected_vx, have_better_choice=have_better_choices)
-
-# g.plot_graph_maximal_matching(show=True)
-
-print(g.n_matching())
-print(Game.check_real_maximal_matching(g))
