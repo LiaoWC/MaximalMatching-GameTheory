@@ -1,4 +1,8 @@
-# Finding Maximal Independent Set using Game Theory Approach
+# Maximal Matching
+
+Revised from MIS
+-------------------------------------
+
 
 We analyze by game-theoretical method.
 Imagine every vertex is a player in a game. Each player select a strategy with highest payoff.
@@ -37,27 +41,11 @@ sudo apt install graphviz-python
 pip3 install -r requirements.txt
 ```
 
-### How to Run UI
-```shell script
-cd ${the folder where app.py in}
-python3 app.py
-Open browser and go to 127.0.0.1:5000
-```
 
 ### How to Use
 #### Create a graph
-Two ways:
-1. Create a custom graph:
 
-    Note that adjacency matrix should be filled with bi-directional edges to become non-directional edges. 
-    ![](static/img/readme/c1.png)
-2. Create a ws model graph:
-    
-    ![](static/img/readme/c2.png)
-
-#### Check if the graph is an independent set
-
-![](static/img/readme/c3.png)
+#### Check if the graph is a maximal matching
 
 #### Run a move
 
