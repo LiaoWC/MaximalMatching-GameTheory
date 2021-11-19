@@ -2,7 +2,7 @@ import numpy as np
 import graphviz
 import random
 from copy import deepcopy
-from typing import Callable, List, Tuple, Optional
+from typing import Callable, List, Tuple, Optional, Dict
 import matplotlib.pyplot as plt
 import ast
 import json as std_json
@@ -39,7 +39,7 @@ class Graph:
             if i > 0:
                 for j in range(len(self.edges) + 1):
                     if j == 0:
-                        representation += f"{i:03} -> [ "
+                        representation += f"{i - 1:03} -> [ "
                     else:
                         representation += str(self.edges[i - 1][j - 1]) + " "
                 representation += f"]\ts{self.strategies[i - 1]}\tw{self.weights[i - 1]}\n"
@@ -52,7 +52,9 @@ class Graph:
     def plot_graph(self, filename='plotted_graph',
                    show=False,
                    picked_vertex: Optional[int] = None,
-                   have_better_choice: Optional[List[int]] = None):
+                   have_better_choice: Optional[List[int]] = None,
+                   maximal_matching: bool = False,
+                   fill_when_s_not_zero: bool = True):
         """
         :param filename:
         :param show: whether plt show the graph
@@ -79,6 +81,62 @@ class Graph:
                 if self.edges[i][j] != 0.:
                     d.edge(f'{i}\n(w{self.weights[i]})', f'{j}\n(w{self.weights[j]})')
         d.render(view=False)
+        if show is True:
+            plt.imshow(plt.imread(f'{filename}.png'))
+            plt.axis('off')
+            plt.show()
+
+    def plot_graph_maximal_matching(self, filename='plotted_graph',
+                                    show=False,
+                                    picked_vertex: Optional[int] = None,
+                                    have_better_choice: Optional[List[int]] = None):
+        """
+        :param filename:
+        :param show: whether plt show the graph
+        :param have_better_choice: highlight those vertices which has other strategy to improve its payoff in this round
+                                   (shown as a octagon)
+        :param picked_vertex: highlight  the vertex picked
+                              (may indicate its the one change its strategy to improve its payoff)
+                              (shown as a tripleoctagon)
+        :param fill_when_s_not_zero:
+        """
+        d = graphviz.Digraph(filename=filename)
+        d.format = 'png'
+        d.attr(rankdir='LR', concentrate='False')
+        # Vertex index from 1        # Vertices
+        d.attr('node', shape='circle')
+
+        def v_name(v):
+            return f'{v}\n(s{self.strategies[v]})'
+
+        for vertex in range(self.n_vertices()):
+            i = vertex
+            j = int(self.strategies[i])
+            k = int(self.strategies[j])
+            if k == i and i != j:
+                style = 'filled'
+                color = 'lightblue2'
+            else:
+                style = ''
+                color = 'black'
+            shape = 'octagon' if (have_better_choice is not None and vertex in have_better_choice) else 'circle'
+            shape = 'tripleoctagon' if (picked_vertex is not None and vertex == picked_vertex) else shape
+
+            d.node(v_name(vertex), color=color, style=style, shape=shape)
+        for i in range(self.n_vertices()):
+            for j in range(self.n_vertices()):
+                if self.edges[i][j] != 0. and i != j:
+                    c_i = int(self.strategies[i])
+                    c_j = int(self.strategies[j])
+                    if c_i == j and c_j == i:
+                        d.edge(v_name(i), v_name(j), color='red',
+                               style='tapered', penwidth='7', arrowhead='none', arrowtail='none', dir='none')
+                    elif c_i == j:
+                        d.edge(v_name(i), v_name(j), color='orange',
+                               style='tapered', penwidth='7', arrowhead='normal', arrowtail='none', dir='both')
+                    else:
+                        d.edge(v_name(i), v_name(j))
+        d.render(view=False, )
         if show is True:
             plt.imshow(plt.imread(f'{filename}.png'))
             plt.axis('off')
@@ -137,8 +195,19 @@ class Graph:
         """Create a default graph only given edges. Strategies -> all zero. Weights -> all 1."""
         return Graph(strategies=Strategy.zeros(len(edges)), edges=edges, weights=VertexWeight.same(len(edges)))
 
+    def open_neighbors(self, v: float) -> List[int]:
+        return self.edges[v].nonzero()[0].tolist()
+
 
 class Strategy:
+    @staticmethod
+    def arange(n_vertices) -> List[float]:
+        return np.arange(float(n_vertices)).tolist()
+
+    @staticmethod
+    def minus_ones(n_vertices) -> List[float]:
+        return (-1 * np.ones((n_vertices,))).tolist()
+
     @staticmethod
     def zeros(n_vertices) -> List[float]:
         return np.zeros((n_vertices,)).tolist()
@@ -246,62 +315,54 @@ class Edge:
 
 
 class Utility:
-    """Each utility function here must have at least 2 arguments: graph & vertex."""
+    MIN = -99999999  # effective smallest number (may be chosen)
+    MAX = 99999999  # effective largest number (may be chosen)
+    ZERO = 0
+    GOOD = 999
+    """
+    Each utility function here must have 3 arguments: graph(Graph) & vertex(int) & strategy(float) & opt(dict).
+    Must check if the strategy is valid; if invalid, return NEG_INF.
+    """
 
     @staticmethod
-    def maximal_independent_set(graph: Graph, vertex: int, alpha=2.0) -> float:
+    def maximal_matching(graph: Graph, vertex: int, strategy: float, opt: dict) -> float:
         """Unweighted MIS game.
+        If strategy == vertex, it means this v chooses not to connect anyone.
         :param graph:
         :param vertex: the vertex to calculate utility
-        :param alpha:
+        :param strategy:
+        :param opt:
+
+        Let c() indicate a vertex's strategy
+        Let i = vertex to discuss
+        Let j = i's strategy = c(i)
+        Let k = j's strategy = c(j)
+        if i == j: return 0
+        elif k == i: return +999999 (i forms a matching)
+        elif k == j: return -999999 (i connects a v which already has a matching)
+        else: return 999 (encourage v to find a matching instead of be silent)
         """
-        if graph.strategies[vertex] != 0.0:
-            utility = 1.0
-            for neighbor in range(graph.n_vertices()):
-                if graph.edges[vertex][neighbor] != 0. and vertex != neighbor:
-                    utility += -1 * alpha * graph.strategies[vertex] * graph.strategies[neighbor]
+        strategy = int(strategy)
+        i = int(vertex)
+        j = int(strategy)
+        k = int(graph.strategies[j])
+        c_k = int(graph.strategies[k])
+        if i == j:
+            return Utility.ZERO
+        if graph.edges[vertex][strategy] == 0.:  # Not itself or open neighbor
+            return Utility.MIN
+        elif k == i:
+            return Utility.MAX
+        elif c_k == j and j != k:
+            return Utility.MIN
         else:
-            utility = 0.
-        return utility
+            return Utility.GOOD
 
-    @staticmethod
-    def weighted_maximal_independent_set_1(graph: Graph, vertex: int, alpha=2.0) -> float:
-        """WMIS with priority function: w(v)/((degree(v)+1)"""
-        priority = []
-        for v in range(len(graph.edges)):
-            degree = sum(graph.edges[v])
-            priority.append(graph.weights[v] / (degree + 1))
-        #
-        if graph.strategies[vertex] != 0.0:
-            utility = 1.0
-            for neighbor in range(graph.n_vertices()):
-                if graph.edges[vertex][neighbor] != 0. and vertex != neighbor and \
-                        priority[vertex] <= priority[neighbor]:  # using priority
-                    utility += -1 * alpha * graph.strategies[vertex] * graph.strategies[neighbor]
-        else:
-            utility = 0.
-        return utility
 
+class PossibleStrategies:
     @staticmethod
-    def weighted_maximal_independent_set_2(graph: Graph, vertex: int, alpha=2.0) -> float:
-        """WMIS with priority function: w(v)/sum of all v's closed neighbors' w"""
-        priority = []
-        for v in range(len(graph.edges)):
-            tmp_p = graph.weights[v]
-            for other_v in range(len(graph.edges)):
-                if graph.edges[v][other_v] != 0.0:
-                    tmp_p += graph.weights[other_v]
-            priority.append(graph.weights[v] / tmp_p)
-        #
-        if graph.strategies[vertex] != 0.0:
-            utility = 1.0
-            for neighbor in range(graph.n_vertices()):
-                if graph.edges[vertex][neighbor] != 0. and vertex != neighbor and \
-                        priority[vertex] <= priority[neighbor]:  # using priority
-                    utility += -1 * alpha * graph.strategies[vertex] * graph.strategies[neighbor]
-        else:
-            utility = 0.
-        return utility
+    def all_vertices(graph: Graph) -> List[float]:
+        return np.arange(graph.n_vertices()).tolist()
 
 
 class Game:
@@ -316,44 +377,54 @@ class Game:
         self.utility_func = utility_func
 
     @staticmethod
-    def check_nash_equilibrium(graph: Graph, utility_func: Callable, alpha=None) -> List[int]:
+    def check_nash_equilibrium(graph: Graph, utility_func: Callable,
+                               strategy_list: List, opt: dict) -> Dict[int, Tuple[int, float]]:
         """Check what vertices can improve its utility function by changing its original strategy.
         :param graph:
         :param utility_func:
-        :param alpha:
-        return the idx of those vertices which can improve its utitlity.
+        :param strategy_list: List of possible strategy float numbers
+        :param opt: settings for utility function
+        return the idx of those vertices which can improve its utility THE MOST and > original utility.
         """
-        better_choice_vertices = []
-        for vertex in range(graph.n_vertices()):
-            temp = graph.strategies[vertex]
-            if alpha is None:
-                cur_utility = utility_func(graph=graph, vertex=vertex)
-                graph.strategies[vertex] = 1. if temp == 0. else 0.
-                new_utility = utility_func(graph=graph, vertex=vertex)
-            else:
-                cur_utility = utility_func(graph=graph, vertex=vertex, alpha=alpha)
-                graph.strategies[vertex] = 1. if temp == 0. else 0.
-                new_utility = utility_func(graph=graph, vertex=vertex, alpha=alpha)
-            #
-            graph.strategies[vertex] = temp
-            #
-            if new_utility > cur_utility:
-                better_choice_vertices.append(vertex)
-        return better_choice_vertices
+        better_choices = {}  # dict key: v's idx, value: tuple of best other strategies and utility to v
+        for vertex in range(graph.n_vertices()):  # iter all vertices
+            original_s = graph.strategies[vertex]
+            original_u = utility_func(graph=graph, vertex=vertex, strategy=original_s, opt=opt)
+            max_u_s = original_s
+            max_u = original_u
+            for s in strategy_list:
+                new_u = utility_func(graph=graph, vertex=vertex, strategy=s, opt=opt)
+                if new_u > max_u:
+                    max_u_s, max_u = s, new_u
+            print('kkk', original_s, original_u, max_u_s, max_u)
+            if max_u_s != original_s:
+                better_choices[vertex] = (max_u_s, max_u)
+        return better_choices
 
     @staticmethod
-    def run_a_time(graph, utility_func, alpha=None) -> Tuple[bool, List, Graph, Optional[int]]:  # True means terminated
-        better_choice_vertices = Game.check_nash_equilibrium(graph=graph, utility_func=utility_func, alpha=alpha)
-        if len(better_choice_vertices) == 0:
-            return True, better_choice_vertices, graph, None  # Reach NE
+    def run_a_time(graph: Graph,
+                   utility_func: Callable,
+                   strategy_list: List[float],
+                   opt: dict) -> Tuple[bool, List[int], Graph, Optional[int], Dict[int, Tuple[int, float]]]:
+        """
+        Returning True means terminated.
+        """
+        better_choices = Game.check_nash_equilibrium(graph=graph, utility_func=utility_func,
+                                                     strategy_list=strategy_list, opt=opt)
+
+        have_better_choice = [key for key in better_choices]
+        if len(better_choices) == 0:
+            return True, have_better_choice, graph, None, better_choices  # Reach NE
         # Randomly pick one to change its action to improve its utility
-        selected_index = np.random.randint(len(better_choice_vertices))
-        selected_vertex = better_choice_vertices[selected_index]
-        # Switch from 0/1 to 1/0
-        graph.strategies[selected_vertex] = 0. if graph.strategies[selected_vertex] == 1. else 1.
-        return False, better_choice_vertices, graph, selected_vertex
+        candidates = [key for key in better_choices]
+        selected_vertex: int = candidates[np.random.randint(len(candidates))]
+        new_s, _ = better_choices[selected_vertex]
+        # Switch strategy
+        graph.strategies[selected_vertex] = new_s
+        return False, have_better_choice, graph, selected_vertex, better_choices
 
     def run(self, show_each_move=False, alpha=None) -> Tuple[Graph, int]:
+        # TODO: need to revise
         graph = deepcopy(self.graph)
         move_cnt = 0
         while True:
@@ -366,6 +437,7 @@ class Game:
 
     @staticmethod
     def check_real_independent_set(graph: Graph):
+        # TODO: make a test function to check maximal matching
         # Method: test each vertex
         #         Turn a vertex with strategy 0 to 1, and see if it doesn't connect any vertices with strategy 1.
         #         If so, the new graph is an independent set so the original graph is not a "maximal" independent set.
@@ -384,6 +456,7 @@ class Game:
             if no_neighbor_with_s1 is True:
                 return False  # TODO: check again
         return True
+
 
 # times = 100
 # avg_moves = []
@@ -409,5 +482,19 @@ class Game:
 # plt.plot(all_p, avg_cardinality, label='avg_cardinality')
 # plt.legend()
 # plt.show()
+
+init_edges = Edge.ws_model(n_vertices=10, k_nearest=2, rewire_prob=0.4)
+init_strategies = Strategy.arange(n_vertices=len(init_edges))
+init_weights = VertexWeight.same(n_vertices=len(init_edges))
+g = Graph(strategies=init_strategies, edges=init_edges, weights=init_weights)
+m = Game(graph=g, utility_func=Utility.maximal_matching)
+
+is_terminated, have_better_choices, g, selected_vx, better_choicess = Game.run_a_time(graph=g,
+                                                                                      utility_func=Utility.maximal_matching,
+                                                                                      strategy_list=PossibleStrategies.all_vertices(
+                                                                                          g),
+                                                                                      opt={})
+print(is_terminated, have_better_choices, selected_vx, better_choicess)
+g.plot_graph_maximal_matching(show=True, picked_vertex=selected_vx, have_better_choice=have_better_choices)
 
 # TODO: verify that the game state is a valid solution
