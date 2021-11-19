@@ -74,6 +74,19 @@ Find all vertices which has at least one other strategy that bring the vertex mo
 
 By providing n, k, rewiring probability, and some options, the system will simulate for you and showed on top of the webpage.
 It may take lots of time to simulate. The result will be showed in the image area after finishing simulating.  
+
+In each test, 3 line graphs will be displayed:
+
+1. Average size of MIS (at left)
+2. Average weight sum of MIS (at center)
+3. Average number of moves of MIS (at right)
+
+Each graph contains three plotted line:
+
+1. Not using priority (blue)
+2. Priority function 1 (orange)
+3. Priority function 2 (green)
+
 ![](static/img/readme/r2.png)
 
 #### Plot
