@@ -58,6 +58,7 @@ By this design, the game will converge to a Nash equilibrium and form a maximal 
 #### How can we increase the number of matched pairs?
 
 Take into consideration of the following case.
+
 ![](readme_img/4.png)
 
 
@@ -71,6 +72,7 @@ Take into consideration of the following case.
 In this graph, the number of matched pairs is 4. Are there any methods to maximize it?
 
 ![](readme_img/5.png)
+
 Yes, by connecting this way, we get 5 matched pairs, more than the original one.
 
 After observing the graph, you may find the tip to derive more matched pairs is to match from those vertices which have **less neighbors**. That is, we can assign priority based on the number of a vertex's open neighbors.
@@ -78,7 +80,9 @@ After observing the graph, you may find the tip to derive more matched pairs is 
 #### How do I design the utility function in the concept of priority?
 
 ![](readme_img/2.png)
+
 ![](readme_img/3.png)
+
 ```text
 👉 Explanation:
 (1) i's strategy == "i" itself ⇒ point to itself ⇒ means null here ⇒ not good not bad
@@ -106,6 +110,7 @@ Settings:
 The simulation is run twice. The below images are the results.
 
 ![](readme_img/7.png)
+
 ![](readme_img/8.png)
 
 From the results, we can see using the concept of priority improves the number of matched pairs while increasing the move counts. In conclusion, which utility function to adopt depends on what the application needs.
