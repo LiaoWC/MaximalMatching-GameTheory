@@ -13,7 +13,7 @@ In this work, game-theoretical approaches are used to help us design a distribut
     - [How to use?](#How-to-Use)
 - [Methods](#Methods)
     - [u1 - Without Priority](#u1---Without-Priority)
-    - [u2 - With Priority](#u12--With-Priority)
+    - [u2 - With Priority](#u2--With-Priority)
 - [Simulation and Results](#Simulation-and-Results)
 - [Reference](#Reference)
 
