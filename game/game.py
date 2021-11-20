@@ -374,28 +374,9 @@ class Utility:
         :param vertex: the vertex to calculate utility
         :param strategy:
         :param opt:
-
-        Let c() indicate a vertex's strategy
-        Let i = vertex to discuss
-        Let j = i's strategy = c(i)
-        Let k = j's strategy = c(j)
-        if i == j: return ZERO
-        elif k == i: return MAX (i forms a matching)
-        elif k == j: return MIN (i connects a v which already has a matching)
-        else: return GOOD (encourage v to find a matching instead of be silent)
         """
-
         def priority(v):
             return -sum(graph.edges[v])
-
-        def detect_higher(other_than: List[int]):
-            # Detect if is forced by a higher priority vertex
-            for other_ in range(graph.n_vertices()):
-                if other_ == i or other_ == j:
-                    continue
-                if int(graph.strategies[other_]) == i and (priority(other_) > priority(i)):
-                    return True  # Force it to break to the link
-            return False
 
         strategy = int(strategy)
         i = int(vertex)

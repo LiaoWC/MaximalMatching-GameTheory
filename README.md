@@ -1,36 +1,20 @@
 # Maximal Matching
 
-Revised from MIS
--------------------------------------
+Keywords: Maximal Matching, Game Theory
 
+## Introduction
 
-We analyze by game-theoretical method.
-Imagine every vertex is a player in a game. Each player select a strategy with highest payoff.
-There are two strategies in total:
-
-- Strategy 1 = the vertex is in the independent set.
-- Strategy 2 = the vertex is NOT in the independent set.
-
-By designing useful utility function, we make the graph find the maximal independent set itself.
-We adopt this utility function[1]: 
-![MIS Utility Function](static/img/readme/mis_utility.png)
-
-Keywords: Maximal Independent Set (MIS), Game Theory, Distributed System
+In this work, game-theoretical approaches are used to help us design a distributed algorithm that can solve graph problems. Two utility functions are created to make this graph game reach a Nash equilibrium and derive a maximal matching.
 
 ## Outline
 
-- [Install](#Install)
-- [How to Run UI](#How-to-Run-UI)
-- [How to Use UI](#How-to-Use-UI) 
-    - [Create a graph](#Create-a-graph)
-    - [Check if the graph is an independent set](#Check-if-the-graph-is-an-independent-set)
-    - [Run a move](#Run-a-move)
-    - [Simulate](#Simulate)
-    - [Programming Languages & Framework](#Programming-Languages-&-Framework)
-    - [Plot](#Plot)
-- [Programming Languages & Framework](#Programming-Languages-&-Framework)
-- [Notes](#Notes)
-- [Todos](#Todos)
+- [Usage](#Usage)
+    - [Install](#Install)
+    - [How to use?](#How-to-Use)
+- [Methods](#Methods)
+    - [u1 - Without Priority](#u1---Without-Priority)
+    - [u2 - With Priority](#u12--With-Priority)
+- [Simulation and Results](#Simulation-and-Results)
 - [Reference](#Reference)
 
 ## Usage
@@ -41,63 +25,90 @@ sudo apt install graphviz-python
 pip3 install -r requirements.txt
 ```
 
-
 ### How to Use
-#### Create a graph
 
-#### Check if the graph is a maximal matching
+> See the instruction in main.ipynb
 
-#### Run a move
+## Methods
 
-Find all vertices which has at least one other strategy that bring the vertex more utility. Randomly select one of them to switch to the better strategy. It'll remain unchanged if all vertices reach a Nash equilibrium.
- 
-- Before running a move, please create a graph first.
-- Created graph is showed on top of the webpage.
-- Octagon means it has other strategy which can make the vertex get higher utility.
+Two utility functions are designed. Let's call them ***u1*** and ***u2***.
+
+Simply speaking, their major difference is whether account for **priority**, which is a heuristic to maximize the total number of matched pairs.
+
+- u1: without priority
+- u2: with priority
+
+### u1 - Without Priority
+
+![](readme_img/1.png)
+
+```text
+👉 Explanation:
+(1) i's strategy == "i" itself ⇒ point to itself ⇒ means null here ⇒ not good not bad
+(2) not an open neighbor ⇒ must not match together ⇒ bad payoff
+(3) be a matching ⇒ good payoff
+(4) connect to an existing matched pair ⇒ violate the rule ⇒  bad payoff
+(5) accepted ⇒ a little payoff
+```
+
+By this design, the game will converge to a Nash equilibrium and form a maximal matching.
+
+### u2 - With Priority
+
+#### How can we increase the number of matched pairs?
+
+Take into consideration of the following case.
+![](readme_img/4.png)
+
+
+
+- Red lines: matching
+- Black lines: edges connecting adjacent vertices
+- Light-blue nodes: vertices already in a matching
+- Orange arrows: indicate the desire a vertex to connect a neighbor but not a matching
+- You can ignore the shape here
+
+In this graph, the number of matched pairs is 4. Are there any methods to maximize it?
+
+![](readme_img/5.png)
+Yes, by connecting this way, we get 5 matched pairs, more than the original one.
+
+After observing the graph, you may find the tip to derive more matched pairs is to match from those vertices which have **less neighbors**. That is, we can assign priority based on the number of a vertex's open neighbors.
+
+#### How do I design the utility function in the concept of priority?
+
+![](readme_img/2.png)
+![](readme_img/3.png)
+```text
+👉 Explanation:
+(1) i's strategy == "i" itself ⇒ point to itself ⇒ means null here ⇒ not good not bad
+(2) not an open neighbor ⇒ must not match together ⇒ bad payoff
+(3) connect to an existing matched pair and you don't have a higher priority than both the vertices in that pair ⇒ you shouldn't connect ⇒  bad payoff
+(4) otherwise ⇒ this design make a vertex tend to connect a vertex with higher priority to get a higher payoff
+```
+
+#### An example result of using this utility function
+
+![](readme_img/6.png)
+
+- Octagon means it has another strategy that can make the vertex get higher utility.
 - Triple octagon means it's the vertex chosen to switch to the other strategy.
 
-![](static/img/readme/r1.png)
+## Simulation and Results
 
-#### Simulate
+Settings:
 
-By providing n, k, rewiring probability, and some options, the system will simulate for you and showed on top of the webpage.
-It may take lots of time to simulate. The result will be showed in the image area after finishing simulating.  
+- number of vertices = 30
+- k-nearest = 4
+- rewire probability: 0.0~1.0 with step 0.2
+- tested utility functions: u1 & u2 (u2 uses the concept of priority)
 
-In each test, 3 line graphs will be displayed:
+The simulation is run twice. The below images are the results.
 
-1. Average size of MIS (at left)
-2. Average weight sum of MIS (at center)
-3. Average number of moves of MIS (at right)
+![](readme_img/7.png)
+![](readme_img/8.png)
 
-Each graph contains three plotted line:
+From the results, we can see using the concept of priority improves the number of matched pairs while increasing the move counts. In conclusion, which utility function to adopt depends on what the application needs.
 
-1. Not using priority (blue)
-2. Priority function 1 (orange)
-3. Priority function 2 (green)
-
-![](static/img/readme/r2.png)
-
-#### Plot
-
-The created image and simulation result will be displayed at the top. You can plot custom graph by create it first and you will see it at the top of the webpage.
-![](static/img/readme/img_example.png)
-
-## Programming Languages & Framework
-
-This project are writen by:
-- Python3
-- Backend: Flask
-- Frontend: JavaScript/CSS/HTML5/JQuery/Bootstrap
-
-### Notes
-
--  If you encounter `graphviz.backend.ExecutableNotFound: failed`, check if you install graphviz successfully and ensure its executable is in the PATH.
-
-### Todos
-
-- [ ] Fix graphviz excusable-not-found problem or find other solution to plot. Make this project can display on Heroku.
-- [ ] Add a blog article which describe some research.
-
-### Reference
-1. L.-H. Yen, J.-Y. Huang, and V. Turau, “Designing self-stabilizing systems using game theory,” ACM Trans. on Autonomous and Adaptive Systems, 11(3), Sept. 2016.
-2. Wikipedia: [Watts–Strogatz model](https://en.wikipedia.org/wiki/Watts%E2%80%93Strogatz_model)
+## Reference
+https://en.wikipedia.org/wiki/Matching_(graph_theory)
